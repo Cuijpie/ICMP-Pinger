@@ -100,6 +100,7 @@ void ping(int sockfd, addrinfo* res) {
     int msg_count = 0;
     int seq = 0;
     
+    //TODO:Compute metrics
     while(true) {
         bzero(&packet, sizeof(packet));
 
@@ -118,6 +119,7 @@ void ping(int sockfd, addrinfo* res) {
             std::cout << "\nPacket succesfully send!!: " << send << std::endl;
         }
 
+        //recv package
         if ((recv = recvfrom(sockfd, &packet, sizeof(packet), 0, (struct sockaddr*)&recv_addr, &recv_len)) < 0) {
             std::cout << "Failed to receive package: " << recv << std::endl;
         } else {
