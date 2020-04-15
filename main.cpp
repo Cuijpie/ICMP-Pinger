@@ -1,12 +1,9 @@
 #include <iostream>
-#include <unistd.h>
-
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
-
-#include <arpa/inet.h>
-#include <netinet/ip.h>
+#include <getopt.h>
 
 #include "ping.cpp"
 
@@ -14,7 +11,7 @@ auto get_addrinfo(char *hostname) -> addrinfo* {
     struct addrinfo hints, *res;
 
     hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM; 
+    hints.ai_socktype = SOCK_DGRAM; 
     hints.ai_flags = AI_PASSIVE; 
     hints.ai_protocol = 0;
 
@@ -24,15 +21,6 @@ auto get_addrinfo(char *hostname) -> addrinfo* {
     }
    
     return res;
-}
-
-auto set_hoplimit(int sockfd, int ttl) -> void {
-    if (setsockopt(sockfd, IPPROTO_ICMP, IP_TTL, &ttl, sizeof(ttl)) != 0) { 
-        std::cout << "Setting socket options to TTL failed!" << std::endl; 
-        return; 
-    } else { 
-        std::cout << "Socket set to TTL..\n" << std::endl; 
-    } 
 }
 
 auto open_socket(int protocol) -> int {
@@ -52,25 +40,28 @@ auto open_socket(int protocol) -> int {
     return sockfd;
 }
 
-auto main(int argc, char *argv[]) -> int {
+void interrupt_handler(int x) {
+    run = 0;
+}
+
+auto main(int argc, char **argv) -> int {
+    signal(SIGINT, interrupt_handler);
+
     if (argc < 2) {
         fprintf(stderr, "Invalid number of arguments, please provide a hostname.\n");
         return 0;
     }
 
-    addrinfo *res = get_addrinfo(argv[1]);
+    addrinfo *res = get_addrinfo(argv[argc-1]);
     int sockfd = open_socket(res->ai_family);
-    
-    //set ttl
-    int ttl_val = argv[2] != NULL ? atoi(argv[2]) : 64;
 
-    //hop limit
-    set_hoplimit(sockfd, ttl_val);
-
-    //start ping
     Ping *p = new Ping(sockfd, res);
+
+    p->set_config(argc, argv);
 
     p->start();
 
+    p->print_statistics();
+    
     return 0;
 }
