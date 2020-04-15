@@ -8,6 +8,9 @@
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 
+#include <ctime>
+#include <chrono>
+
 #define PACKET_SIZE 64
 
 typedef struct icmp_packet {
@@ -20,6 +23,7 @@ class Ping {
     private:
         int sockfd;
         addrinfo* res;
+        int run;
 
         auto checksum(void *b, int len) -> unsigned short {    
             unsigned short *buf = (u_short*)b; 
@@ -45,6 +49,7 @@ class Ping {
         Ping(int sockfd, addrinfo* res) {
             this->sockfd = sockfd;
             this->res = res;
+            run = 1;
         }
 
         auto start() -> void {
@@ -53,11 +58,10 @@ class Ping {
             socklen_t recv_len = sizeof(struct sockaddr_storage);
 
             int send, recv;
-            int msg_count = 0;
             int seq = 0;
             
             //TODO:Compute metrics
-            while(true) {
+            while(run) {
                 bzero(&packet, sizeof(packet));
 
                 packet.hdr.type = ICMP_ECHO; 
@@ -66,21 +70,23 @@ class Ping {
                 packet.hdr.checksum = checksum(&packet, sizeof(packet));
 
                 //send packet 
-                
                 usleep(1000000);
                 
+                auto start = std::chrono::high_resolution_clock::now();
+
                 if ((send = sendto(sockfd, &packet, sizeof(packet), 0, res->ai_addr, res->ai_addrlen)) < 0) { 
                     std::cout << "Failed to send package." << std::endl; 
-                } else {
-                    std::cout << "\nPacket succesfully send!!: " << send << std::endl;
-                }
+                } 
 
                 //recv package
                 if ((recv = recvfrom(sockfd, &packet, sizeof(packet), 0, (struct sockaddr*)&recv_addr, &recv_len)) < 0) {
                     std::cout << "Failed to receive package: " << recv << std::endl;
-                } else {
-                    std::cout << "message received: " << recv << std::endl;
-                }          
+                }
+
+                auto end = std::chrono::high_resolution_clock::now();
+
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+                std::cout << recv << " bytes from" << " placeholder " <<": icmp_seq=" << seq << " time: " << duration.count()/1000.0 << std::endl;          
             } 
         }
 };
