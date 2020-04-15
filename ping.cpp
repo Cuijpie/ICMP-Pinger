@@ -36,7 +36,7 @@ class Ping {
         int received_messages = 0;
 
         auto set_hoplimit(int ttl) -> void {
-            if (setsockopt(sockfd, IPPROTO_ICMP, IP_TTL, &ttl, sizeof(ttl)) != 0) { 
+            if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) != 0) { 
                 std::cout << "Setting socket options to TTL failed!" << std::endl; 
             } else { 
                 std::cout << "Socket set to TTL..\n" << std::endl; 
@@ -132,7 +132,7 @@ class Ping {
                 } 
 
                 if ((recv = recvfrom(sockfd, &packet, sizeof(packet), 0, (struct sockaddr*)&recv_addr, &recv_len)) < 0) {
-                    std::cout << "Failed to receive package: " << recv << std::endl;
+                    std::cout << "Failed to receive package" << std::endl;
 
                 } else if (packet.hdr.type == 69 and packet.hdr.code == 0 && flag) {
                     auto end = std::chrono::high_resolution_clock::now();
@@ -143,7 +143,7 @@ class Ping {
 
                     std::cout << recv << " bytes from: " << get_ip() <<"; icmp_seq=" << seq << "; time: " << duration.count()/1000.0 << "msec" << std::endl;   
                     
-                } else if(flag) {
+                } else {
                     std::cout << "Error: Packet received with ICMP type: " << packet.hdr.type << "and code: " << packet.hdr.code << std::endl;
                 }  
                 
