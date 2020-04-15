@@ -7,18 +7,9 @@
 #include <netdb.h>
 
 #include <arpa/inet.h>
-#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/ip_icmp.h>
-#include <netinet/if_ether.h>
-#include <netinet/in_systm.h>
-#include <stdlib.h> 
-#include <stdio.h> 
-#include <fcntl.h> 
-#include <signal.h>
-#include <stdlib.h>
-#include <net/if.h>
 
 #define PACKET_SIZE 64
 
@@ -28,7 +19,7 @@ typedef struct icmp_packet {
 
 } icmp_packet;
 
-addrinfo *get_addrinfo(char *hostname) {
+auto get_addrinfo(char *hostname) -> addrinfo* {
     struct addrinfo hints, *res;
 
     hints.ai_family = AF_UNSPEC;
@@ -45,16 +36,16 @@ addrinfo *get_addrinfo(char *hostname) {
     return res;
 }
 
-void set_hoplimit(int sockfd, int ttl) {
+auto set_hoplimit(int sockfd, int ttl) -> void {
     if (setsockopt(sockfd, IPPROTO_ICMP, IP_TTL, &ttl, sizeof(ttl)) != 0) { 
-        printf("Setting socket options to TTL failed!\n"); 
+        std::cout << "Setting socket options to TTL failed!" << std::endl; 
         return; 
     } else { 
-        printf("Socket set to TTL..\n"); 
+        std::cout << "Socket set to TTL..\n" << std::endl; 
     } 
 }
 
-int open_socket(int protocol) {
+auto open_socket(int protocol) -> int {
     int sockfd = -1;
 
     if (protocol == AF_INET) {
@@ -71,7 +62,7 @@ int open_socket(int protocol) {
     return sockfd;
 }
 
-unsigned short checksum(void *b, int len) {    
+auto checksum(void *b, int len) -> unsigned short {    
     unsigned short *buf = (u_short*)b; 
     unsigned int sum = 0; 
     unsigned short result; 
@@ -91,7 +82,7 @@ unsigned short checksum(void *b, int len) {
     return result; 
 }
 
-void ping(int sockfd, addrinfo* res) {
+auto ping(int sockfd, addrinfo* res) -> void {
     icmp_packet packet;
     struct sockaddr_storage recv_addr;
     socklen_t recv_len = sizeof(struct sockaddr_storage);
@@ -114,7 +105,7 @@ void ping(int sockfd, addrinfo* res) {
         usleep(1000000);
         
         if ((send = sendto(sockfd, &packet, sizeof(packet), 0, res->ai_addr, res->ai_addrlen)) < 0) { 
-            printf("Packet Sending Failed!\n"); 
+            std::cout << "Failed to send package." << std::endl; 
         } else {
             std::cout << "\nPacket succesfully send!!: " << send << std::endl;
         }
@@ -124,15 +115,12 @@ void ping(int sockfd, addrinfo* res) {
             std::cout << "Failed to receive package: " << recv << std::endl;
         } else {
             std::cout << "message received: " << recv << std::endl;
-        }
-        
-          
+        }          
     } 
-
 }
 
-int main(int argc, char *argv[]) {
-    if (argc <= 2) {
+auto main(int argc, char *argv[]) -> int {
+    if (argc < 2) {
         fprintf(stderr, "Invalid number of arguments, please provide a hostname.\n");
         return 0;
     }
