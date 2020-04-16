@@ -6,17 +6,12 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/icmp6.h>
 #include <arpa/inet.h>
 #include <chrono>
 
-#define PACKET_SIZE 64
+#define BUF_SIZE 256
 #define TIME_OUT 1
-
-typedef struct icmp_packet {
-    struct icmphdr hdr;
-    char msg[PACKET_SIZE-sizeof(struct icmphdr)];
-
-} icmp_packet;
 
 int run = 1;
 
@@ -75,6 +70,20 @@ class Ping {
             return ((seq - received_messages)/(float)seq) * 100.0;
         }
 
+        auto unpack(int recv_bytes, char *recv_buffer) -> icmphdr* {
+            char packet[sizeof(icmphdr)];
+            memset(packet, 0, sizeof(packet));
+            icmphdr *pkt = (icmphdr *)packet;
+
+            iphdr *iph = (iphdr *)recv_buffer;
+            int hlen(iph->ihl << 2);
+            recv_bytes -= hlen;
+
+            pkt = (icmphdr *)(recv_buffer + hlen);
+
+            return pkt;
+        }
+
     public:
         Ping(int sockfd, addrinfo* res) {
             this->sockfd = sockfd;
@@ -108,45 +117,54 @@ class Ping {
         }
 
         auto start() -> void {
-            icmp_packet packet;
-            struct sockaddr_storage recv_addr;
-            socklen_t recv_len = sizeof(struct sockaddr_storage);
+          
+            struct sockaddr_in recv_addr;
+            socklen_t recv_len = sizeof(sockaddr_in);
 
             int send, recv, flag;
             
             do {
-                flag = 1;
-                bzero(&packet, sizeof(packet));
+                char recv_buffer[BUF_SIZE];
+                memset(recv_buffer, 0, sizeof(recv_buffer));
 
-                packet.hdr.type = ICMP_ECHO; 
-                packet.hdr.un.echo.id = getpid(); 
-                packet.hdr.un.echo.sequence = seq++; 
-                packet.hdr.checksum = checksum(&packet, sizeof(packet));
+                char packet[sizeof(icmphdr)];
+                memset(packet, 0, sizeof(packet));
+                icmphdr *pkt = (icmphdr *)packet;
+
+                pkt->type = ICMP6_ECHO_REQUEST;
+                pkt->code = 0;
+                pkt->checksum = 0;
+                pkt->un.echo.id = htons(getpid() & 0xFFFF);
+                pkt->un.echo.sequence = seq++;
+                pkt->checksum = checksum((uint16_t *)pkt, sizeof(pkt));
 
                 auto start = std::chrono::high_resolution_clock::now();
 
-                if ((send = sendto(sockfd, &packet, sizeof(packet), 0, res->ai_addr, res->ai_addrlen)) < 0) { 
+                if ((send = sendto(sockfd, packet, sizeof(packet), 0, res->ai_addr, res->ai_addrlen)) < 0) { 
                     std::cout << "Failed to send package." << std::endl; 
-                    flag = 0;
                     seq--;
-                } 
+                }
 
-                if ((recv = recvfrom(sockfd, &packet, sizeof(packet), 0, (struct sockaddr*)&recv_addr, &recv_len)) < 0) {
+                if ((recv = recvfrom(sockfd, recv_buffer, sizeof(recv_buffer), 0, (struct sockaddr*)&recv_addr, &recv_len)) < 0) {
                     std::cout << "Failed to receive package" << std::endl;
 
-                } else if (packet.hdr.type == 69 and packet.hdr.code == 0 && flag) {
-                    auto end = std::chrono::high_resolution_clock::now();
-                    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
-                    
-                    total_rtt_usec += duration.count();
-                    received_messages++;
-
-                    std::cout << recv << " bytes from: " << get_ip() <<"; icmp_seq=" << seq << "; time: " << duration.count()/1000.0 << "msec" << std::endl;   
-                    
                 } else {
-                    std::cout << "Error: Packet received with ICMP type: " << packet.hdr.type << "and code: " << packet.hdr.code << std::endl;
-                }  
-                
+                    pkt = unpack(recv, recv_buffer);
+
+                    if (pkt->type == ICMP_ECHOREPLY and pkt->code == 0) {
+                        auto end = std::chrono::high_resolution_clock::now();
+                        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end-start);
+                        
+                        total_rtt_usec += duration.count();
+                        received_messages++;
+
+                        std::cout << recv << " bytes from: " << get_ip() <<"; icmp_seq=" << seq << "; time: " << duration.count()/1000.0 << "msec" << std::endl;   
+                    
+                    } else if (pkt->type == ICMP_TIME_EXCEEDED and pkt->code == 0){
+                        std::cout << "ICMP Packet -> icmp_seq=" << seq << " Time Exceeded..." << std::endl;
+                    }  
+                } 
+                                
                 wait_flag ? usleep(wait_val) : sleep(1);\
 
                 if (count_flag and seq >= count_val) {
@@ -155,6 +173,7 @@ class Ping {
 
             } while (run);
         }
+
 
         auto print_statistics() -> void {
             std::cout << std::endl;
