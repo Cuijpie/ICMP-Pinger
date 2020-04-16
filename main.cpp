@@ -55,7 +55,7 @@ auto main(int argc, char **argv) -> int {
     addrinfo *res = get_addrinfo(argv[argc-1]);
     int sockfd = open_socket(res->ai_family);
 
-    Ping *p = new Ping(sockfd, res);
+    Ping *p = new Ping(sockfd, res, res->ai_family);
 
     p->set_config(argc, argv);
 

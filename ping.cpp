@@ -15,20 +15,21 @@
 
 int run = 1;
 
-int count_flag = 0;
-int count_val;
-
-int wait_flag = 0;
-int wait_val;
-
 class Ping {
     private:
         int sockfd;
         addrinfo* res;
+        int protocol;
 
         int seq = 0;
         long double total_rtt_usec = 0;
         int received_messages = 0;
+
+        int count_flag = 0;
+        int count_val;
+
+        int wait_flag = 0;
+        int wait_val;
 
         auto set_hoplimit(int ttl) -> void {
             if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) != 0) { 
@@ -85,9 +86,10 @@ class Ping {
         }
 
     public:
-        Ping(int sockfd, addrinfo* res) {
+        Ping(int sockfd, addrinfo* res, int protocol) {
             this->sockfd = sockfd;
             this->res = res;
+            this->protocol = protocol;
         }
 
         auto set_config(int argc, char **argv) -> void {
@@ -108,7 +110,6 @@ class Ping {
                         break;
                 }
             }
-
 
             struct timeval tv_out; 
             tv_out.tv_sec = TIME_OUT; 
@@ -131,7 +132,7 @@ class Ping {
                 memset(packet, 0, sizeof(packet));
                 icmphdr *pkt = (icmphdr *)packet;
 
-                pkt->type = ICMP6_ECHO_REQUEST;
+                pkt->type = protocol == AF_INET ? ICMP_ECHO : ICMP6_ECHO_REQUEST;
                 pkt->code = 0;
                 pkt->checksum = 0;
                 pkt->un.echo.id = htons(getpid() & 0xFFFF);
@@ -160,9 +161,11 @@ class Ping {
 
                         std::cout << recv << " bytes from: " << get_ip() <<"; icmp_seq=" << seq << "; time: " << duration.count()/1000.0 << "msec" << std::endl;   
                     
-                    } else if (pkt->type == ICMP_TIME_EXCEEDED and pkt->code == 0){
+                    } else if (pkt->type == ICMP6_TIME_EXCEEDED and pkt->code == 0){
                         std::cout << "ICMP Packet -> icmp_seq=" << seq << " Time Exceeded..." << std::endl;
-                    }  
+                    } else {
+                    std::cout << "Error: Packet received with ICMP type: " << (int)pkt->type << "and code: " << (int)pkt->code << std::endl;
+                } 
                 } 
                                 
                 wait_flag ? usleep(wait_val) : sleep(1);\
