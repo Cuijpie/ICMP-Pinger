@@ -118,7 +118,6 @@ class Ping {
         }
 
         auto start() -> void {
-          
             struct sockaddr_in recv_addr;
             socklen_t recv_len = sizeof(sockaddr_in);
 
@@ -165,7 +164,7 @@ class Ping {
                         std::cout << "ICMP Packet -> icmp_seq=" << seq << " Time Exceeded..." << std::endl;
                     } else {
                     std::cout << "Error: Packet received with ICMP type: " << (int)pkt->type << "and code: " << (int)pkt->code << std::endl;
-                } 
+                    } 
                 } 
                                 
                 wait_flag ? usleep(wait_val) : sleep(1);\
