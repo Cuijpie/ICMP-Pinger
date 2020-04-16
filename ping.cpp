@@ -150,6 +150,7 @@ class Ping {
 
                 } else {
                     pkt = unpack(recv, recv_buffer);
+                    int response = protocol == AF_INET ? ICMP_TIME_EXCEEDED : ICMP6_TIME_EXCEEDED;
 
                     if (pkt->type == ICMP_ECHOREPLY and pkt->code == 0) {
                         auto end = std::chrono::high_resolution_clock::now();
@@ -160,7 +161,7 @@ class Ping {
 
                         std::cout << recv << " bytes from: " << get_ip() <<"; icmp_seq=" << seq << "; time: " << duration.count()/1000.0 << "msec" << std::endl;   
                     
-                    } else if (pkt->type == ICMP6_TIME_EXCEEDED and pkt->code == 0){
+                    } else if (pkt->type == response and pkt->code == 0){
                         std::cout << "ICMP Packet -> icmp_seq=" << seq << " Time Exceeded..." << std::endl;
                     } else {
                     std::cout << "Error: Packet received with ICMP type: " << (int)pkt->type << "and code: " << (int)pkt->code << std::endl;
